@@ -3,6 +3,7 @@ package com.demoapp.development.feature.medications.presentation.medication_list
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.demoapp.development.feature.medications.domain.model.Medication
 import com.demoapp.development.feature.medications.domain.repository.MedicationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,13 +27,16 @@ class MedicationsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val response = medicationRepository.getMedications()
-            _medicationListUiState.value = MedicationListUiState.Success(response)
-
+            val item = medicationRepository.getMedications()
+            setUpMedicationList(item)
         }
     }
 
-     fun getMessage(): String {
+    fun setUpMedicationList(items: List<Medication>) {
+        _medicationListUiState.value = MedicationListUiState.Success(items)
+    }
+
+    fun getMessage(): String {
         val username: String? = savedStateHandle["username"]
         val greeting = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
             in 0..11 -> "Good morning"

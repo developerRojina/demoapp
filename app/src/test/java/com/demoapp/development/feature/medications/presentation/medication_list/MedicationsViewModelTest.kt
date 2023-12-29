@@ -8,13 +8,14 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestCoroutineDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Calendar
@@ -78,5 +79,38 @@ class MedicationsViewModelTest {
         assertEquals(expectedMessage, message)
     }
 
+    @Test
+    fun `initial medication ui state returns loading`() = runBlocking {
+        val viewModel = MedicationsViewModel(mockk(), mockk())
+        val initialUiState = viewModel.medicationUiState.value
+        assertTrue(initialUiState is MedicationListUiState.Loading)
+
+    }
+
+    @Test
+    fun `medication UI state reflects success and contains correct medication list with size`()= runBlocking {
+        val mockMedicationList = listOf(
+            Medication(id = 1, name = "Medication 1", dose = "DOse", strength = "Strength"),
+            Medication(id = 2, name = "Medication 2", dose = "DOse", strength = "Strength")
+        )
+
+        val medicationRepository = mockk<MedicationRepository> {
+            coEvery { getMedications() } returns mockMedicationList
+        }
+
+        val viewModel = MedicationsViewModel(mockk(), medicationRepository)
+        viewModel.setUpMedicationList(medicationRepository.getMedications())
+
+        val uiState = viewModel.medicationUiState.first()
+        assertTrue(uiState is MedicationListUiState.Success)
+
+        val items = (uiState as MedicationListUiState.Success).medications
+        assertEquals(items.size, mockMedicationList.size)
+        assertEquals(items, mockMedicationList)
+
+    }
 
 }
+
+
+
