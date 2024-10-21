@@ -72,6 +72,7 @@ jobs:
       - name: Run instrumentation tests
         run: ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
 
+
       # Shutdown emulator after tests
       - name: Shutdown emulator
         run: adb -s emulator-5554 emu kill
