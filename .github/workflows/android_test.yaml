@@ -24,20 +24,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Download and start the Android emulator
-      - name: Start Android Emulator
+      - name: Run Android Emulator
         run: |
           docker run -d --name android-emulator \
-            -e "ANDROID_SDK_ROOT=/sdk" \
-            -e "AVD_NAME=pixel" \
-            -e "TARGET_ANDROID_VERSION=30" \
-            -e "EMULATOR_ARGS=-no-window -no-audio" \
-            us-docker.pkg.dev/android-emulator-prod/emulator/emulator:30.0.26
+          -e "RUNNER_VERSION=2.1" \
+          -e "ANDROID_HOME=/opt/android-sdk" \
+          -p 6080:6080 \
+          -v /dev/shm:/dev/shm \
+          budtmo/docker-android:x86-11.0
 
-      # Wait for the Android Emulator to fully boot
-      - name: Wait for Android Emulator to Boot
+      - name: Wait for Emulator to Boot
         run: |
-          timeout 300s bash -c "until adb shell getprop sys.boot_completed | grep 1; do sleep 5; done"
+          echo "Waiting for emulator to boot..."
+          for i in {1..30}; do
+            if curl -s http://localhost:6080/ > /dev/null; then
+              echo "Emulator is up!"
+              break
+            fi
+            sleep 10
+          done
+
 
       # Build the APKs (app and test APK)
       - name: Build APKs
