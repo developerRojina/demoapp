@@ -1,0 +1,58 @@
+name: Android Instrumentation Tests
+
+on:
+  push:
+    branches:
+      - develop  # Change to your target branch
+  pull_request:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'  # Use Java 17
+
+      - name: Install Dependencies
+        run: |
+          cd android
+          ./gradlew dependencies
+
+      - name: Download and Set up Android SDK
+        uses: android-build/gradle-android-sdk@v1
+        with:
+          api-level: 31
+          target: 'android-31'
+
+      - name: Start Emulator
+        run: |
+          echo "Starting Emulator..."
+          echo "no" | $ANDROID_HOME/tools/bin/sdkmanager --install "system-images;android-31;google_apis;x86_64"
+          echo "no" | $ANDROID_HOME/tools/bin/avdmanager create avd -n pixel_2 -k "system-images;android-31;google_apis;x86_64" --device "pixel" --force
+          nohup $ANDROID_HOME/emulator/emulator -avd pixel_2 -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect -qemu -m 2048 -smp 4 -enable-kvm &
+
+          # Wait for the emulator to start
+          adb wait-for-device
+          adb shell input keyevent 82  # Unlock the screen
+          sleep 60  # Wait for the emulator to fully boot
+
+      - name: Run Instrumentation Tests
+        run: |
+          for i in {1..20}; do
+            echo "Running local test iteration $i"
+            ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
+            sleep 10
+          done
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: android/app/build/outputs/androidTest/connected/*  # Adjust path as necessary
