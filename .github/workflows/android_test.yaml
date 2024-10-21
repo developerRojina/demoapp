@@ -1,4 +1,4 @@
-name: Android CI
+name: Run Android Tests with Docker Emulator
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - develop
 
 jobs:
-  build:
+  android-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,56 +24,37 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Set up Android SDK
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 31
-          build-tools: 31.0.0
-          components: platform-tools,emulator
-
-      # Install system image for the emulator
-      - name: Install emulator system image
+      # Build the APKs (app and test APK)
+      - name: Build APKs
         run: |
-          sdkmanager "system-images;android-31;default;x86_64"
-          sdkmanager --licenses
+          ./gradlew assembleDebug
+          ./gradlew assembleAndroidTest
 
-      # Create and start the emulator
-      - name: Create and start emulator
+      # Start Android Emulator in Docker
+      - name: Start Android Emulator
+        uses: docker/setup-buildx-action@v2
+
+      - name: Run Android Emulator in Docker
         run: |
-          echo "Creating AVD"
-          avdmanager create avd -n test --package "system-images;android-31;default;x86_64" --device "pixel"
-          echo "Starting AVD"
-          $ANDROID_SDK_ROOT/emulator/emulator -avd test -no-window -no-audio -no-snapshot -no-boot-anim &
-          adb wait-for-device
-          adb shell input keyevent 82
+          docker run -d \
+            --name android-emulator \
+            --device /dev/kvm \
+            -e "DEVICE=Pixel_3a_API_30" \
+            -e "EMULATOR_ARGS=-no-window -no-boot-anim -gpu swiftshader_indirect" \
+            budtmo/docker-android-x86-11.0
 
-      # Wait for the emulator to boot
-      - name: Wait for emulator to boot
+      # Wait for the emulator to fully boot
+      - name: Wait for Android Emulator to boot
         run: |
-          EMULATOR_BOOTED=""
-          boot_attempts=0
-          while [ -z "$EMULATOR_BOOTED" ]; do
-            boot_attempts=$((boot_attempts+1))
-            EMULATOR_BOOTED=$(adb shell getprop sys.boot_completed | tr -d '\r')
-            if [ "$boot_attempts" -gt 30 ]; then
-              echo "Emulator failed to boot after 5 minutes."
-              exit 1
-            fi
-            sleep 10
-          done
-          echo "Emulator is booted."
+          timeout 300s bash -c "until adb shell getprop sys.boot_completed | grep 1; do sleep 5; done"
 
-      # Build with Gradle
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
+      # Run the Android instrumentation tests
+      - name: Run Instrumentation Tests
+        run: |
+          ./gradlew connectedAndroidTest
 
-
-      # Run instrumentation tests
-      - name: Run instrumentation tests
-        run: ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
-
-
-      # Shutdown emulator after tests
-      - name: Shutdown emulator
-        run: adb -s emulator-5554 emu kill
+      # Clean up the Docker container
+      - name: Stop and Remove Android Emulator
+        run: |
+          docker stop android-emulator
+          docker rm android-emulator
