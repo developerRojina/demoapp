@@ -3,10 +3,10 @@ name: Android CI
 on:
   push:
     branches:
-      - develop
+      - main
   pull_request:
     branches:
-      - develop
+      - main
 
 jobs:
   build:
@@ -33,9 +33,10 @@ jobs:
           components: platform-tools,emulator
 
       # Install system image for the emulator
-      - name: Install emulator
+      - name: Install emulator system image
         run: |
           sdkmanager "system-images;android-31;default;x86_64"
+          sdkmanager --licenses
 
       # Create and start the emulator
       - name: Create and start emulator
@@ -43,11 +44,11 @@ jobs:
           echo "Creating AVD"
           avdmanager create avd -n test --package "system-images;android-31;default;x86_64" --device "pixel"
           echo "Starting AVD"
-          nohup emulator -avd test -no-window -no-audio -no-snapshot -no-boot-anim &
+          $ANDROID_SDK_ROOT/emulator/emulator -avd test -no-window -no-audio -no-snapshot -no-boot-anim &
           adb wait-for-device
           adb shell input keyevent 82
 
-      # Wait for emulator to be fully booted
+      # Wait for the emulator to boot
       - name: Wait for emulator to boot
         run: |
           EMULATOR_BOOTED=""
@@ -63,14 +64,13 @@ jobs:
           done
           echo "Emulator is booted."
 
-      # Run Gradle build
+      # Build with Gradle
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
       # Run instrumentation tests
       - name: Run instrumentation tests
-        run: |
-          ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
+        run: ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
 
       # Shutdown emulator after tests
       - name: Shutdown emulator
