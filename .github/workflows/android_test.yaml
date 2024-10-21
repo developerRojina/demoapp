@@ -3,10 +3,10 @@ name: Android CI with Emulator
 on:
   push:
     branches:
-      - main
+      - develop
   pull_request:
     branches:
-      - main
+      - develop
 
 jobs:
   android-tests:
