@@ -68,6 +68,7 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
+
       # Run instrumentation tests
       - name: Run instrumentation tests
         run: ./gradlew connectedCheck -Pandroid.testInstrumentationRunnerArguments.class=com.milagrocorp.queue.QueueServiceE2ETest
